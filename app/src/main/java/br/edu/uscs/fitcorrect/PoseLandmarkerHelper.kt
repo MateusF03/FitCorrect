@@ -152,32 +152,11 @@ class PoseLandmarkerHelper(
         }
         val frameTime = SystemClock.uptimeMillis()
 
-        // Get the image planes
-        val planes = imageProxy.planes
-        val yBuffer = planes[0].buffer
-        val uBuffer = planes[1].buffer
-        val vBuffer = planes[2].buffer
+        val bitmapBuffer = Bitmap.createBitmap(
+            imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
+        )
 
-        // Compute the sizes of the buffers
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-
-        // Allocate a new buffer with the correct size
-        val nv21 = ByteArray(ySize + uSize + vSize)
-
-        // Copy the pixel data from the buffers into the new buffer
-        yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
-
-        // Create a bitmap from the NV21 byte array
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, imageProxy.width, imageProxy.height, null)
-        val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, imageProxy.width, imageProxy.height), 100, out)
-        val jpegBytes = out.toByteArray()
-        val bitmapBuffer = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
-
+        imageProxy.use { bitmapBuffer.copyPixelsFromBuffer(imageProxy.planes[0].buffer) }
         imageProxy.close()
 
         val matrix = Matrix().apply {
