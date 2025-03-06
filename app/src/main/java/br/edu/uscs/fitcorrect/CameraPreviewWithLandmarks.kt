@@ -8,6 +8,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -20,18 +21,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import br.edu.uscs.fitcorrect.PoseLandmarkerHelper.LandmarkerListener
+import br.edu.uscs.fitcorrect.utils.AngleUtils
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 
 @Composable
-fun CameraPreviewWithLandmarks() {
+fun CameraPreviewWithLandmarks(modifier: Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
+    var currentAngleType by remember { mutableStateOf(AngleType.LEFT_KNEE) }
     // State to hold the most recent detection result.
     var currentResultBundle by remember { mutableStateOf<PoseLandmarkerHelper.ResultBundle?>(null) }
 
@@ -100,7 +103,7 @@ fun CameraPreviewWithLandmarks() {
     }
 
     // Compose UI: a Box that stacks the camera preview and a Canvas overlay.
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier) {
         // Display the camera preview.
         AndroidView(
             factory = { previewView },
@@ -127,32 +130,77 @@ fun CameraPreviewWithLandmarks() {
                             strokeWidth = 8f
                         )
                     }
-
-                    PoseLandmarker.POSE_LANDMARKS.forEach {
+                    PoseLandmarker.POSE_LANDMARKS.forEach { conn ->
+                        val start = conn.start()
+                        val end = conn.end()
+                        val isHighlight = getCurrentAngleConnections(currentAngleType).any { (s, e) ->
+                            (s == start && e == end) || (s == end && e == start)
+                        }
                         drawLine(
                             start = Offset(
-                                landmark[it.start()].x() * size.width,
-                                landmark[it.start()].y() * size.height
+                                landmark[start].x() * size.width,
+                                landmark[start].y() * size.height
                             ),
                             end = Offset(
-                                landmark[it.end()].x() * size.width,
-                                landmark[it.end()].y() * size.height
+                                landmark[end].x() * size.width,
+                                landmark[end].y() * size.height
                             ),
-                            color = Color.Red,
+                            color = if (isHighlight) Color.Green else Color.Red,
                             strokeWidth = 4f
                         )
                     }
                 }
             }
 
+
         }
-        Button(
-            onClick = {
-                isFrontCamera = !isFrontCamera
-            },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        Text(
+            text = currentResultBundle?.results?.firstOrNull()?.let { result ->
+                if (result.landmarks().isEmpty()) return@let "No landmarks detected"
+                val (landmark1, landmark2, landmark3) = when (currentAngleType) {
+                    AngleType.LEFT_KNEE -> Triple(23, 25, 27)
+                    AngleType.LEFT_ARM -> Triple(11, 13, 15)
+                }
+                val p1 = result.landmarks()[0][landmark1]
+                val p2 = result.landmarks()[0][landmark2]
+                val p3 = result.landmarks()[0][landmark3]
+                "Angle: %.2f°".format(AngleUtils.calculate3DAngle(p1, p2, p3))
+            } ?: "Calculating angle...",
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(16.dp)
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
         ) {
-            Text(text = "Switch Camera")
+            Button(
+                onClick = { isFrontCamera = !isFrontCamera },
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Text("Switch Camera")
+            }
+            Button(
+                onClick = {
+                    currentAngleType = when (currentAngleType) {
+                        AngleType.LEFT_KNEE -> AngleType.LEFT_ARM
+                        AngleType.LEFT_ARM -> AngleType.LEFT_KNEE
+                    }
+                }
+            ) {
+                Text("Switch Angle")
+            }
         }
+    }
+
+
+}
+
+fun getCurrentAngleConnections(angleType: AngleType): List<Pair<Int, Int>> {
+    return when (angleType) {
+        AngleType.LEFT_KNEE -> listOf(23 to 25, 25 to 27)
+        AngleType.LEFT_ARM -> listOf(11 to 13, 13 to 15)
     }
 }
