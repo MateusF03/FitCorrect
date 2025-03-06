@@ -1,8 +1,8 @@
 package br.edu.uscs.fitcorrect.utils
 
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
-import kotlin.math.abs
-import kotlin.math.atan2
+import kotlin.math.acos
+import kotlin.math.sqrt
 
 class AngleUtils {
     companion object {
@@ -11,18 +11,24 @@ class AngleUtils {
             b: NormalizedLandmark,  // Center joint (e.g., knee)
             c: NormalizedLandmark   // End joint (e.g., ankle)
         ): Float {
-            var angleBA = atan2(b.y() - a.y(), b.x() - a.x())
-            var angleBC = atan2(c.y() - b.y(), c.x() - b.x())
+            val abX = a.x() - b.x()
+            val abY = a.y() - b.y()
+            val abZ = a.z() - b.z()
 
-            if (angleBA < 0) {
-                angleBA += 2 * Math.PI.toFloat()
-            }
-            if (angleBC < 0) {
-                angleBC += 2 * Math.PI.toFloat()
+            val bcX = c.x() - b.x()
+            val bcY = c.y() - b.y()
+            val bcZ = c.z() - b.z()
+
+            val dotProduct = (abX * bcX) + (abY * bcY) + (abZ * bcZ)
+            val magnitudeAB = sqrt(abX * abX + abY * abY + abZ * abZ)
+            val magnitudeBC = sqrt(bcX * bcX + bcY * bcY + bcZ * bcZ)
+
+            if (magnitudeAB == 0f || magnitudeBC == 0f) {
+                return 0f
             }
 
-            val angle = abs(angleBA - angleBC)
-            return Math.toDegrees(angle.toDouble()).toFloat()
+            val angleRad = acos(dotProduct / (magnitudeAB * magnitudeBC))
+            return Math.toDegrees(angleRad.toDouble()).toFloat()
         }
     }
 }
