@@ -11,7 +11,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +31,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import br.edu.uscs.fitcorrect.PoseLandmarkerHelper.LandmarkerListener
 import br.edu.uscs.fitcorrect.utils.AngleUtils
@@ -34,6 +42,7 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 fun CameraPreviewWithLandmarks(modifier: Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
     var currentAngleType by remember { mutableStateOf(AngleType.LEFT_KNEE) }
     // State to hold the most recent detection result.
     var currentResultBundle by remember { mutableStateOf<PoseLandmarkerHelper.ResultBundle?>(null) }
@@ -182,6 +191,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
             ) {
                 Text("Switch Camera")
             }
+            /*
             Button(
                 onClick = {
                     currentAngleType = when (currentAngleType) {
@@ -192,15 +202,36 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
             ) {
                 Text("Switch Angle")
             }
+
+             */
+            AngleSelectDropdown {
+                currentAngleType = it
+            }
         }
     }
 
 
 }
 
-fun getCurrentAngleConnections(angleType: AngleType): List<Pair<Int, Int>> {
-    return when (angleType) {
-        AngleType.LEFT_KNEE -> listOf(23 to 25, 25 to 27)
-        AngleType.LEFT_ARM -> listOf(11 to 13, 13 to 15)
+@Composable
+fun AngleSelectDropdown(onAngleTypeChange: (AngleType) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.padding(16.dp)) {
+        IconButton(onClick = { expanded = !expanded}) {
+            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Select angle")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false}) {
+            AngleType.entries.forEach { angleType ->
+                DropdownMenuItem(
+                    text = { Text((angleType.name).replace("_", " ")) },
+                    onClick = {
+                        onAngleTypeChange(angleType)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
+
+fun getCurrentAngleConnections(angleType: AngleType): List<Pair<Int, Int>> = angleType.angleConnections
