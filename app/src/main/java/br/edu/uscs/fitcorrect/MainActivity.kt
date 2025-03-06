@@ -48,34 +48,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ExerciseAssistantScreen() {
     Box(modifier = Modifier.fillMaxSize()) {
-        CameraPreviewWithLandmarks(modifier = Modifier.fillMaxSize().padding(16.dp))
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            //ExerciseHeader()
-        }
-    }
-}
-
-@Composable
-fun ExerciseHeader() {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.8f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text("PLACEHOLDER", fontSize = 18.sp)
-                Text("PLACEHOLDER", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
+        CameraPreviewWithLandmarks(modifier = Modifier.fillMaxSize())
     }
 }
