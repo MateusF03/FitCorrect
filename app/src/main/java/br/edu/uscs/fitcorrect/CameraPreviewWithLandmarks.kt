@@ -7,34 +7,45 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import br.edu.uscs.fitcorrect.PoseLandmarkerHelper.LandmarkerListener
 import br.edu.uscs.fitcorrect.utils.AngleUtils
+import br.edu.uscs.fitcorrect.utils.CameraSwitch
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 
@@ -127,16 +138,13 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                 // that returns a list of landmarks, do something like:
                 for(landmark in result.landmarks()) {
                     for(normalizedLandmark in landmark) {
-                        drawPoints(
-                            points = listOf(
-                                Offset(
-                                    normalizedLandmark.x() * size.width,
-                                    normalizedLandmark.y() * size.height
-                                )
-                            ),
-                            pointMode = PointMode.Points,
-                            color = Color.Blue,
-                            strokeWidth = 8f
+                        drawCircle(
+                            color = Color.Cyan.copy(alpha = 0.7f),
+                            radius = 4f,
+                            center = Offset(
+                                normalizedLandmark.x() * size.width,
+                                normalizedLandmark.y() * size.height
+                            )
                         )
                     }
                     PoseLandmarker.POSE_LANDMARKS.forEach { conn ->
@@ -154,7 +162,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                                 landmark[end].x() * size.width,
                                 landmark[end].y() * size.height
                             ),
-                            color = if (isHighlight) Color.Green else Color.Red,
+                            color = if (isHighlight) Color.Green else Color.Red.copy(alpha = 0.4f),
                             strokeWidth = 4f
                         )
                     }
@@ -163,48 +171,52 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
 
 
         }
-        Text(
-            text = currentResultBundle?.results?.firstOrNull()?.let { result ->
-                if (result.landmarks().isEmpty()) return@let "No landmarks detected"
-                val (landmark1, landmark2, landmark3) = when (currentAngleType) {
-                    AngleType.LEFT_KNEE -> Triple(23, 25, 27)
-                    AngleType.LEFT_ARM -> Triple(11, 13, 15)
-                }
-                val p1 = result.landmarks()[0][landmark1]
-                val p2 = result.landmarks()[0][landmark2]
-                val p3 = result.landmarks()[0][landmark3]
-                "Angle: %.2f°".format(AngleUtils.calculate3DAngle(p1, p2, p3))
-            } ?: "Calculating angle...",
-            color = Color.White,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(16.dp)
-        )
+        Box(
+            modifier = Modifier.align(Alignment.TopCenter).background(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp)).padding(12.dp)
+        ) {
+            Text(
+                text = currentResultBundle?.results?.firstOrNull()?.let { result ->
+                    if (result.landmarks().isEmpty()) return@let "No landmarks detected"
+                    val (landmark1, landmark2, landmark3) = when (currentAngleType) {
+                        AngleType.LEFT_KNEE -> Triple(23, 25, 27)
+                        AngleType.LEFT_ARM -> Triple(11, 13, 15)
+                    }
+                    val p1 = result.landmarks()[0][landmark1]
+                    val p2 = result.landmarks()[0][landmark2]
+                    val p3 = result.landmarks()[0][landmark3]
+                    "Angle: %.2f°".format(AngleUtils.calculate3DAngle(p1, p2, p3))
+                } ?: "Calculating angle...",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(16.dp)
-        ) {
-            Button(
-                onClick = { isFrontCamera = !isFrontCamera },
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Text("Switch Camera")
-            }
-            /*
-            Button(
-                onClick = {
-                    currentAngleType = when (currentAngleType) {
-                        AngleType.LEFT_KNEE -> AngleType.LEFT_ARM
-                        AngleType.LEFT_ARM -> AngleType.LEFT_KNEE
-                    }
-                }
-            ) {
-                Text("Switch Angle")
-            }
+                .padding(12.dp)
+                .background(
+                    color = Color.Black.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
 
-             */
-            AngleSelectDropdown {
+        ) {
+            IconButton(
+                onClick = { isFrontCamera = !isFrontCamera },
+                modifier = Modifier
+                    .background(Color.White.copy(alpha = 0.2f), shape = CircleShape)
+                    .padding(4.dp)
+            ) {
+                Icon(
+                    imageVector = CameraSwitch,
+                    contentDescription = "Switch Camera",
+                    tint = Color.White
+                )
+            }
+            AngleSelectDropdown(currentAngleType) {
                 currentAngleType = it
             }
         }
@@ -214,16 +226,42 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
 }
 
 @Composable
-fun AngleSelectDropdown(onAngleTypeChange: (AngleType) -> Unit) {
+fun AngleSelectDropdown(currentAngleType: AngleType,  onAngleTypeChange: (AngleType) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Box(modifier = Modifier.padding(16.dp)) {
-        IconButton(onClick = { expanded = !expanded}) {
-            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Select angle")
+    Box {
+        Button(
+            onClick = { expanded = !expanded },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White.copy(alpha = 0.2f)
+            )
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = "Select Angle",
+                    tint = Color.White
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = currentAngleType.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                    color = Color.White
+                )
+            }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false}) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color.White.copy(alpha = 0.9f))
+        ) {
             AngleType.entries.forEach { angleType ->
                 DropdownMenuItem(
-                    text = { Text((angleType.name).replace("_", " ")) },
+                    text = {
+                        Text(
+                            text = angleType.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                            fontWeight = if (angleType == currentAngleType) FontWeight.Bold else FontWeight.Normal,
+                            color = Color.DarkGray
+                        )
+                    },
                     onClick = {
                         onAngleTypeChange(angleType)
                         expanded = false
