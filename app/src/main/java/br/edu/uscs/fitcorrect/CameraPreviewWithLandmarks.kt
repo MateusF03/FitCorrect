@@ -38,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -176,7 +177,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
         ) {
             Text(
                 text = currentResultBundle?.results?.firstOrNull()?.let { result ->
-                    if (result.landmarks().isEmpty()) return@let "No landmarks detected"
+                    if (result.landmarks().isEmpty()) return@let stringResource(R.string.no_landmarks_detected)
                     val (landmark1, landmark2, landmark3) = when (currentAngleType) {
                         AngleType.LEFT_KNEE -> Triple(23, 25, 27)
                         AngleType.LEFT_ARM -> Triple(11, 13, 15)
@@ -184,8 +185,9 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                     val p1 = result.landmarks()[0][landmark1]
                     val p2 = result.landmarks()[0][landmark2]
                     val p3 = result.landmarks()[0][landmark3]
-                    "Angle: %.2f°".format(AngleUtils.calculate3DAngle(p1, p2, p3))
-                } ?: "Calculating angle...",
+
+                    stringResource(R.string.display_angle, AngleUtils.calculate3DAngle(p1, p2, p3))
+                } ?: stringResource(R.string.calculating_angle),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
@@ -243,7 +245,7 @@ fun AngleSelectDropdown(currentAngleType: AngleType,  onAngleTypeChange: (AngleT
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    text = currentAngleType.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                    text = stringResource(currentAngleType.stringKey),
                     color = Color.White
                 )
             }
@@ -257,7 +259,7 @@ fun AngleSelectDropdown(currentAngleType: AngleType,  onAngleTypeChange: (AngleT
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = angleType.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                            text = stringResource(angleType.stringKey),
                             fontWeight = if (angleType == currentAngleType) FontWeight.Bold else FontWeight.Normal,
                             color = Color.DarkGray
                         )
