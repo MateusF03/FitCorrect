@@ -1,3 +1,10 @@
 <resources>
-    <string name="app_name">FitCorrect</string>
+    <string name="app_name" translatable="false">FitCorrect</string>
+    <string name="switch_camera">Switch Cameras</string>
+    <string name="select_angle">Select angle</string>
+    <string name="left_knee">Left knee</string>
+    <string name="left_arm">Left arm</string>
+    <string name="display_angle">Angle: %1$.2f°</string>
+    <string name="calculating_angle">Calculating angle..</string>
+    <string name="no_landmarks_detected">No landmarks detected</string>
 </resources>
