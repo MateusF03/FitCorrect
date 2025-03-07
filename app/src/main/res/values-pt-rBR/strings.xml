@@ -5,6 +5,6 @@
     <string name="left_knee">Joelho esquerdo</string>
     <string name="left_arm">Braço esquerdo</string>
     <string name="display_angle">Ângulo: %1$.2f°</string>
-    <string name="calculating_angle">Calculando o ângulo...</string>
+    <string name="calculating_angle">Calculando o ângulo…</string>
     <string name="no_landmarks_detected">Não foram detectados pontos de referência</string>
 </resources>
