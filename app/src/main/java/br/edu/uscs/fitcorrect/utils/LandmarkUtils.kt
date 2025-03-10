@@ -24,6 +24,17 @@ class LandmarkUtils {
         const val RIGHT_PINKY = 18
         const val LEFT_INDEX = 19
         const val RIGHT_INDEX = 20
-
+        const val LEFT_THUMB = 21
+        const val RIGHT_THUMB = 22
+        const val LEFT_HIP = 23
+        const val RIGHT_HIP = 24
+        const val LEFT_KNEE = 25
+        const val RIGHT_KNEE = 26
+        const val LEFT_ANKLE = 27
+        const val RIGHT_ANKLE = 28
+        const val LEFT_HEEL = 29
+        const val RIGHT_HEEL = 30
+        const val LEFT_FOOT_INDEX = 31
+        const val RIGHT_FOOT_INDEX = 32
     }
 }
