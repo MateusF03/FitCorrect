@@ -7,4 +7,6 @@
     <string name="display_angle">Angle: %1$.2f°</string>
     <string name="calculating_angle">Calculating angle…</string>
     <string name="no_landmarks_detected">No landmarks detected</string>
+    <string name="right_knee">Right knee</string>
+    <string name="right_arm">Right arm</string>
 </resources>

@@ -7,4 +7,6 @@
     <string name="display_angle">Ângulo: %1$.2f°</string>
     <string name="calculating_angle">Calculando o ângulo…</string>
     <string name="no_landmarks_detected">Não foram detectados pontos de referência</string>
+    <string name="right_knee">Joelho direito</string>
+    <string name="right_arm">Braço direito</string>
 </resources>
