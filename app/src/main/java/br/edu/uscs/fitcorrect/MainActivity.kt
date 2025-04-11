@@ -34,7 +34,5 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ExerciseAssistantScreen() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        CameraPreviewWithLandmarks(modifier = Modifier.fillMaxSize())
-    }
+    ExerciseValidationScreen()
 }
