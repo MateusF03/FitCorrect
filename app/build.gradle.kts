@@ -6,7 +6,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("de.undercouch.download").version("5.6.0")
+    id("com.google.devtools.ksp") version "1.9.22-1.0.17"
+    id("de.undercouch.download") version "5.6.0"
 }
 
 task("downloadMediapipeModel") {
@@ -67,10 +68,14 @@ android {
     buildFeatures {
         compose = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.10"
+    }
+
 }
 
 dependencies {
-
+    // Seção original mantida intacta
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -85,6 +90,15 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.core)
+
+
+    implementation("androidx.room:room-runtime:2.7.0")
+    implementation("androidx.room:room-ktx:2.7.0")
+    ksp("androidx.room:room-compiler:2.7.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("at.favre.lib:bcrypt:0.10.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
