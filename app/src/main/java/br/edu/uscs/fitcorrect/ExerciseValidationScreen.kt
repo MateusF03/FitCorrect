@@ -31,12 +31,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import br.edu.uscs.fitcorrect.exercise.Exercise
 import br.edu.uscs.fitcorrect.exercise.ExerciseRepository
 import br.edu.uscs.fitcorrect.utils.AngleUtils
 
 @Composable
-fun ExerciseValidationScreen() {
+fun ExerciseValidationScreen(navController: NavHostController) {
     // Hold the selected exercise. Default to the first one.
     var currentExercise by remember { mutableStateOf(ExerciseRepository.getAllExercises().first()) }
     // Hold the latest pose detection results.
@@ -59,11 +60,23 @@ fun ExerciseValidationScreen() {
                 .padding(12.dp)
                 .align(Alignment.TopCenter)
         ) {
-            ExerciseSelector(
-                exercises = ExerciseRepository.getAllExercises(),
-                currentExercise = currentExercise,
-                onExerciseSelected = { currentExercise = it }
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ExerciseSelector(
+                    exercises = ExerciseRepository.getAllExercises(),
+                    currentExercise = currentExercise,
+                    onExerciseSelected = { currentExercise = it }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = { navController.navigate("profile") },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.4f))
+                ) {
+                    Text("Profile", color = Color.White)
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             ExerciseFeedback(
                 exercise = currentExercise,
