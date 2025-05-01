@@ -66,6 +66,9 @@ class MainActivity : ComponentActivity() {
                     composable("session") {
                         ExerciseSessionScreen(navController = navController)
                     }
+                    composable("results") {
+                        SessionResultScreen(navController)
+                    }
                 }
             }
         }

@@ -1,10 +1,13 @@
 package br.edu.uscs.fitcorrect.exercise
 
+import br.edu.uscs.fitcorrect.R
+
 data class Exercise(
     val id: Int,
     val name: String,
     val description: String,
-    val validations: List<ExerciseValidation>
+    val validations: List<ExerciseValidation>,
+    val videoResId: Int? = null,
 )
 
 object ExerciseRepository {
@@ -13,6 +16,7 @@ object ExerciseRepository {
             id = 1,
             name = "Squat",
             description = "Proper squat form validation",
+            videoResId = R.raw.squat_demo,
             validations = listOf(
                 ExerciseValidation(
                     anglePoints = Triple(

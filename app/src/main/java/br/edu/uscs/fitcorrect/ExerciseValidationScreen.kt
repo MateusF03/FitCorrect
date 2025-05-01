@@ -1,5 +1,6 @@
 package br.edu.uscs.fitcorrect
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,20 +24,32 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.navigation.NavHostController
 import br.edu.uscs.fitcorrect.exercise.Exercise
 import br.edu.uscs.fitcorrect.exercise.ExerciseRepository
 import br.edu.uscs.fitcorrect.exercise.ExerciseSessionRepository
+import br.edu.uscs.fitcorrect.exercise.SessionResultHolder
 import br.edu.uscs.fitcorrect.utils.AngleUtils
+import androidx.core.net.toUri
+import kotlinx.coroutines.delay
 
 @Composable
 fun ExerciseValidationScreen(navController: NavHostController) {
@@ -208,70 +221,182 @@ fun ExerciseFeedback(
     }
 }
 
+fun calculateAccuracy(exercise: Exercise, resultBundle: PoseLandmarkerHelper.ResultBundle?): Float {
+    val landmarks = resultBundle?.results?.firstOrNull()?.landmarks()?.firstOrNull() ?: return 0f
+
+    val passed = exercise.validations.count { validation ->
+        val p1 = landmarks[validation.anglePoints.first.index]
+        val p2 = landmarks[validation.anglePoints.second.index]
+        val p3 = landmarks[validation.anglePoints.third.index]
+        val angle = AngleUtils.calculate3DAngle(p1, p2, p3)
+        angle in (validation.minAngle - validation.errorMargin)..(validation.maxAngle + validation.errorMargin)
+    }
+
+    return (passed.toFloat() / exercise.validations.size) * 100
+}
+
+
 @Composable
 fun ExerciseSessionScreen(
     navController: NavHostController
 ) {
     val sessionSteps = ExerciseSessionRepository.sessionSteps
-    var currentStepIndex by remember { mutableStateOf(0) }
-    var timeLeft by remember { mutableStateOf(sessionSteps[currentStepIndex].durationSeconds) }
+    var currentStepIndex by rememberSaveable { mutableStateOf(0) }
+    var timeLeft by rememberSaveable { mutableStateOf(0) }
     var resultBundle by remember { mutableStateOf<PoseLandmarkerHelper.ResultBundle?>(null) }
 
     val currentStep = sessionSteps[currentStepIndex]
     val exercise = ExerciseRepository.getExerciseById(currentStep.exerciseId)
+    var showVideo by remember { mutableStateOf(true) }
 
-    // Temporizador
-    LaunchedEffect(currentStepIndex) {
-        timeLeft = currentStep.durationSeconds
-        while (timeLeft > 0) {
-            kotlinx.coroutines.delay(1000L)
-            timeLeft--
-        }
-        if (currentStepIndex < sessionSteps.lastIndex) {
-            currentStepIndex++
-        } else {
-            navController.navigate("profile")
+    // Start timer only after video is dismissed
+    LaunchedEffect(currentStepIndex, showVideo) {
+        if (!showVideo) {
+            timeLeft = currentStep.durationSeconds
+            while (timeLeft > 0) {
+                delay(1000L)
+                timeLeft--
+            }
+            // Move to next step or results
+            if (currentStepIndex < sessionSteps.lastIndex) {
+                currentStepIndex++
+                showVideo = true // reset for next
+            } else {
+                navController.navigate("results")
+            }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (!currentStep.isRest && exercise != null) {
-            CameraPreviewWithLandmarks(
-                modifier = Modifier.fillMaxSize(),
-                onPoseResult = { resultBundle = it },
-                currentExercise = exercise
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        if (showVideo && !currentStep.isRest && exercise != null) {
+            // Video introduction (maior)
+            ExerciseVideoPlayer(
+                videoUri = "android.resource://${LocalContext.current.packageName}/${exercise.videoResId}".toUri()
+            )
+
+            Button(
+                onClick = { showVideo = false },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(16.dp)
+            ) {
+                Text("Começar Exercício")
+            }
+        } else {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (!currentStep.isRest && exercise != null) {
+                    CameraPreviewWithLandmarks(
+                        modifier = Modifier.fillMaxSize(),
+                        onPoseResult = { resultBundle = it },
+                        currentExercise = exercise
+                    )
+                    resultBundle?.let {
+                        val accuracy = calculateAccuracy(exercise, it)
+                        SessionResultHolder.addAccuracy(exercise.name, accuracy)
+                    }
+                }
+
+                // Timer overlay no topo para melhor visibilidade
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .background(Color.Black.copy(alpha = 0.7f), shape = RoundedCornerShape(12.dp))
+                        .padding(16.dp)
+                        .align(Alignment.TopCenter),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (currentStep.isRest) "Pausa" else exercise?.name ?: "Exercício",
+                        fontSize = 24.sp,
+                        color = if (currentStep.isRest) Color.Yellow else Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "$timeLeft s",
+                        fontSize = 48.sp,
+                        color = Color.Cyan
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (!currentStep.isRest && exercise != null) {
+                        ExerciseFeedback(
+                            exercise = exercise,
+                            resultBundle = resultBundle
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SessionResultScreen(navController: NavHostController) {
+    val results = SessionResultHolder.results
+    val overallAverage = results.flatMap { it.accuracyList }.average().toFloat()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Resultados da Sessão", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("Média geral: ${overallAverage.toInt()}%", color = Color.Green)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        results.forEach { result ->
+            Text(
+                "${result.exerciseName}: ${result.averageAccuracy.toInt()}%",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (result.averageAccuracy >= 80) Color.Green else Color.Yellow
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .background(Color.Black.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp))
-                .padding(12.dp)
-                .align(Alignment.TopCenter),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = if (currentStep.isRest) "Pausa" else exercise?.name ?: "Exercício",
-                style = MaterialTheme.typography.headlineMedium,
-                color = if (currentStep.isRest) Color.Yellow else Color.White
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Tempo restante: $timeLeft s",
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.LightGray
-            )
+        Spacer(modifier = Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = {
+            SessionResultHolder.clear()
+            navController.navigate("profile")
+        }) {
+            Text("Voltar ao Perfil")
+        }
+    }
+}
 
-            if (!currentStep.isRest && exercise != null) {
-                ExerciseFeedback(
-                    exercise = exercise,
-                    resultBundle = resultBundle
-                )
+
+@Composable
+fun ExerciseVideoPlayer(videoUri: Uri) {
+    val context = LocalContext.current
+    val player = remember {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoUri))
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    AndroidView(
+        factory = {
+            PlayerView(context).apply {
+                this.player = player
+                useController = true
             }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp) // Aumentado para maior visibilidade
+    )
+
+    DisposableEffect(Unit) {
+        onDispose {
+            player.release()
         }
     }
 }
