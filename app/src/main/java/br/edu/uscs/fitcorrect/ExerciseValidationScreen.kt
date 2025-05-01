@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import br.edu.uscs.fitcorrect.exercise.Exercise
 import br.edu.uscs.fitcorrect.exercise.ExerciseRepository
+import br.edu.uscs.fitcorrect.exercise.ExerciseSessionRepository
 import br.edu.uscs.fitcorrect.utils.AngleUtils
 
 @Composable
@@ -70,6 +72,16 @@ fun ExerciseValidationScreen(navController: NavHostController) {
                     onExerciseSelected = { currentExercise = it }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = { navController.navigate("session") },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Green.copy(alpha = 0.4f))
+                ) {
+                    Text("Iniciar Sessão", color = Color.White)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 Button(
                     onClick = { navController.navigate("profile") },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Gray.copy(alpha = 0.4f))
@@ -136,8 +148,8 @@ fun ExerciseFeedback(
     exercise: Exercise,
     resultBundle: PoseLandmarkerHelper.ResultBundle?
 ) {
-    // Try to get the landmarks from the first detected person.
     val landmarks = resultBundle?.results?.firstOrNull()?.landmarks()?.firstOrNull()
+    var validationsPassed = 0
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -146,39 +158,119 @@ fun ExerciseFeedback(
             color = Color.LightGray
         )
         Spacer(modifier = Modifier.height(8.dp))
+
         if (landmarks == null) {
             Text(
-                text = "Detecting pose...",
+                text = "Detectando pose...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White
             )
         } else {
+            val totalValidations = exercise.validations.size
+
             exercise.validations.forEach { validation ->
-                // Retrieve each landmark point using the index from your BodyLandmark enum.
                 val p1 = landmarks[validation.anglePoints.first.index]
                 val p2 = landmarks[validation.anglePoints.second.index]
                 val p3 = landmarks[validation.anglePoints.third.index]
                 val angle = AngleUtils.calculate3DAngle(p1, p2, p3)
-                // Consider errorMargin to allow some tolerance.
                 val isValid = angle in (validation.minAngle - validation.errorMargin)..(validation.maxAngle + validation.errorMargin)
-                // Display a row with an icon and the feedback.
+
+                if (isValid) validationsPassed++
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(vertical = 4.dp)
                 ) {
                     Icon(
                         imageVector = if (isValid) Icons.Default.Check else Icons.Default.Close,
-                        contentDescription = if (isValid) "Good" else "Needs adjustment",
+                        contentDescription = if (isValid) "Bom" else "Ajustar",
                         tint = if (isValid) Color.Green else Color.Red,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Angle: ${angle.toInt()}° (target: ${validation.minAngle.toInt()}° - ${validation.maxAngle.toInt()}°)",
+                        text = "Ângulo: ${angle.toInt()}° (ideal: ${validation.minAngle.toInt()}° - ${validation.maxAngle.toInt()}°)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White
                     )
                 }
+            }
+
+            val accuracyPercentage = (validationsPassed.toFloat() / exercise.validations.size) * 100
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Precisão do movimento: ${accuracyPercentage.toInt()}%",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (accuracyPercentage >= 80) Color.Green else Color.Yellow
+            )
+        }
+    }
+}
+
+@Composable
+fun ExerciseSessionScreen(
+    navController: NavHostController
+) {
+    val sessionSteps = ExerciseSessionRepository.sessionSteps
+    var currentStepIndex by remember { mutableStateOf(0) }
+    var timeLeft by remember { mutableStateOf(sessionSteps[currentStepIndex].durationSeconds) }
+    var resultBundle by remember { mutableStateOf<PoseLandmarkerHelper.ResultBundle?>(null) }
+
+    val currentStep = sessionSteps[currentStepIndex]
+    val exercise = ExerciseRepository.getExerciseById(currentStep.exerciseId)
+
+    // Temporizador
+    LaunchedEffect(currentStepIndex) {
+        timeLeft = currentStep.durationSeconds
+        while (timeLeft > 0) {
+            kotlinx.coroutines.delay(1000L)
+            timeLeft--
+        }
+        if (currentStepIndex < sessionSteps.lastIndex) {
+            currentStepIndex++
+        } else {
+            navController.navigate("profile")
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (!currentStep.isRest && exercise != null) {
+            CameraPreviewWithLandmarks(
+                modifier = Modifier.fillMaxSize(),
+                onPoseResult = { resultBundle = it },
+                currentExercise = exercise
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp))
+                .padding(12.dp)
+                .align(Alignment.TopCenter),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = if (currentStep.isRest) "Pausa" else exercise?.name ?: "Exercício",
+                style = MaterialTheme.typography.headlineMedium,
+                color = if (currentStep.isRest) Color.Yellow else Color.White
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Tempo restante: $timeLeft s",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.LightGray
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (!currentStep.isRest && exercise != null) {
+                ExerciseFeedback(
+                    exercise = exercise,
+                    resultBundle = resultBundle
+                )
             }
         }
     }
