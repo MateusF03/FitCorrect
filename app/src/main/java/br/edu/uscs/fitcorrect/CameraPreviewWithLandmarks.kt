@@ -45,13 +45,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import br.edu.uscs.fitcorrect.PoseLandmarkerHelper.LandmarkerListener
+import br.edu.uscs.fitcorrect.exercise.Exercise
 import br.edu.uscs.fitcorrect.utils.AngleUtils
 import br.edu.uscs.fitcorrect.utils.CameraSwitch
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 
 @Composable
-fun CameraPreviewWithLandmarks(modifier: Modifier) {
+fun CameraPreviewWithLandmarks(
+    modifier: Modifier,
+    onPoseResult: (PoseLandmarkerHelper.ResultBundle) -> Unit,
+    currentExercise: Exercise? = null
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -74,6 +79,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                 override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) {
                     // Directly update the state with the new result.
                     currentResultBundle = resultBundle
+                    onPoseResult(resultBundle)
                 }
             }
         )
@@ -100,6 +106,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                 analysis.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
                     // Pass the frame to the pose detector. Make sure is ARGB-888
                     poseLandmarkerHelper.detectLiveStream(imageProxy, isFrontCamera = isFrontCamera)
+
                 }
             }
 
@@ -137,8 +144,8 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                 // Adjust this block to access your landmarks.
                 // For example, if your PoseLandmarkerResult has a method like poseLandmarks()
                 // that returns a list of landmarks, do something like:
-                for(landmark in result.landmarks()) {
-                    for(normalizedLandmark in landmark) {
+                for (landmark in result.landmarks()) {
+                    for (normalizedLandmark in landmark) {
                         drawCircle(
                             color = Color.Cyan.copy(alpha = 0.7f),
                             radius = 4f,
@@ -151,9 +158,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                     PoseLandmarker.POSE_LANDMARKS.forEach { conn ->
                         val start = conn.start()
                         val end = conn.end()
-                        val isHighlight = getCurrentAngleConnections(currentAngleType).any { (s, e) ->
-                            (s == start && e == end) || (s == end && e == start)
-                        }
+                        val isHighlight = false
                         drawLine(
                             start = Offset(
                                 landmark[start].x() * size.width,
@@ -167,31 +172,31 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                             strokeWidth = 4f
                         )
                     }
+                    currentExercise?.validations?.forEachIndexed { index, validation ->
+                        // Define a distinct color for each validation.
+                        val highlightColor = when (index % 3) {
+                            0 -> Color.Yellow
+                            1 -> Color.Magenta
+                            else -> Color.Green
+                        }
+                        // For each joint in the validation, get its landmark index.
+                        val (landmark1, landmark2, landmark3) = validation.anglePoints
+                        listOf(landmark1.index, landmark2.index, landmark3.index).forEach { idx ->
+                            val normalizedLandmark = landmark[idx]
+                            drawCircle(
+                                color = highlightColor,
+                                radius = 8f,
+                                center = Offset(
+                                    normalizedLandmark.x() * size.width,
+                                    normalizedLandmark.y() * size.height
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
 
-        }
-        Box(
-            modifier = Modifier.align(Alignment.TopCenter).background(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp)).padding(12.dp)
-        ) {
-            Text(
-                text = currentResultBundle?.results?.firstOrNull()?.let { result ->
-                    if (result.landmarks().isEmpty()) return@let stringResource(R.string.no_landmarks_detected)
-                    val (landmark1, landmark2, landmark3) = when (currentAngleType) {
-                        AngleType.LEFT_KNEE -> Triple(23, 25, 27)
-                        AngleType.LEFT_ARM -> Triple(11, 13, 15)
-                    }
-                    val p1 = result.landmarks()[0][landmark1]
-                    val p2 = result.landmarks()[0][landmark2]
-                    val p3 = result.landmarks()[0][landmark3]
-
-                    stringResource(R.string.display_angle, AngleUtils.calculate3DAngle(p1, p2, p3))
-                } ?: stringResource(R.string.calculating_angle),
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
         }
 
         Row(
@@ -218,9 +223,12 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
                     tint = Color.White
                 )
             }
+            /*
             AngleSelectDropdown(currentAngleType) {
                 currentAngleType = it
-            }
+            }]
+
+             */
         }
     }
 
@@ -228,7 +236,7 @@ fun CameraPreviewWithLandmarks(modifier: Modifier) {
 }
 
 @Composable
-fun AngleSelectDropdown(currentAngleType: AngleType,  onAngleTypeChange: (AngleType) -> Unit) {
+fun AngleSelectDropdown(currentAngleType: AngleType, onAngleTypeChange: (AngleType) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Button(
@@ -255,23 +263,28 @@ fun AngleSelectDropdown(currentAngleType: AngleType,  onAngleTypeChange: (AngleT
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color.White.copy(alpha = 0.9f))
         ) {
-            AngleType.entries.forEach { angleType ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = stringResource(angleType.stringKey),
-                            fontWeight = if (angleType == currentAngleType) FontWeight.Bold else FontWeight.Normal,
-                            color = Color.DarkGray
-                        )
-                    },
-                    onClick = {
-                        onAngleTypeChange(angleType)
-                        expanded = false
-                    }
-                )
-            }
+            AngleType.entries
+                .sortedBy { it.name }
+                .forEach { angleType ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = stringResource(angleType.stringKey),
+                                fontWeight = if (angleType == currentAngleType) FontWeight.Bold else FontWeight.Normal,
+                                color = Color.DarkGray
+                            )
+                        },
+                        onClick = {
+                            onAngleTypeChange(angleType)
+                            expanded = false
+                        }
+                    )
+                }
         }
     }
 }
 
-fun getCurrentAngleConnections(angleType: AngleType): List<Pair<Int, Int>> = angleType.angleConnections
+fun getCurrentAngleConnections(angleType: AngleType): List<Pair<Int, Int>> =
+    angleType.angleConnections
+
+    
